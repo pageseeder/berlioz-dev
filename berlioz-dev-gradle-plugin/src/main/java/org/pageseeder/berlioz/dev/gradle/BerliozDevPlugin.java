@@ -127,6 +127,18 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
       task.setStandardInput(System.in);
       task.doFirst(new LoadEnvAction(extension.getEnv(), extension.getRequiredEnv()));
 
+      // Before forking the server JVM (doFirst prepends, so this runs first), and once it has exited
+      Provider<Integer> httpsPort = extension.getHttpsEnabled().flatMap(enabled -> enabled
+          ? extension.getHttpsPort()
+          : project.getProviders().provider(() -> null));
+      Provider<Integer> debugPort = debug
+          ? extension.getDebugPort()
+          : project.getProviders().provider(() -> null);
+      task.doFirst(new CheckPortsAction(extension.getHttpPort(), httpsPort, debugPort,
+          CheckPortsAction.When.BEFORE_START));
+      task.doLast(new CheckPortsAction(extension.getHttpPort(), httpsPort, debugPort,
+          CheckPortsAction.When.AFTER_STOP));
+
       DevServerJvmArguments jvmArguments = project.getObjects().newInstance(DevServerJvmArguments.class);
       jvmArguments.getMode().set(extension.getMode());
       jvmArguments.getAppdata().set(extension.getAppdata());
@@ -151,9 +163,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
       arguments.getContextPath().set(extension.getContextPath());
       arguments.getHostname().set(extension.getHostname());
       arguments.getHttpPort().set(extension.getHttpPort());
-      arguments.getHttpsPort().set(extension.getHttpsEnabled().flatMap(enabled -> enabled
-          ? extension.getHttpsPort()
-          : project.getProviders().provider(() -> null)));
+      arguments.getHttpsPort().set(httpsPort);
       arguments.getKeystore().set(extension.getKeystore());
       arguments.getWebInfIncludeJarPattern().set(extension.getWebInfIncludeJarPattern());
       arguments.getTempDirectory().set(project.getLayout().getBuildDirectory().dir("berlioz-dev/" + name));

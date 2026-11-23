@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.BindException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.jetty.ee8.webapp.WebAppContext;
 import org.eclipse.jetty.server.HttpConfiguration;
@@ -61,7 +63,8 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
  * </ul>
  *
  * <p>Press ENTER to stop the server (end of input is ignored, so it keeps running when started
- * without an interactive console); it also stops on interrupt.
+ * without an interactive console); it also stops on interrupt. Once stopped, it warns about any
+ * port that has not been released.
  */
 public final class DevServer {
 
@@ -98,7 +101,8 @@ public final class DevServer {
     String httpsPortOption = options.get("https-port");
 
     Server server = new Server();
-    server.setStopAtShutdown(true);
+    // Stopped by our own shutdown hook, so that the ports can be checked once released
+    server.setStopAtShutdown(false);
 
     HttpConfiguration http = new HttpConfiguration();
     http.setSendServerVersion(false);
@@ -154,7 +158,30 @@ public final class DevServer {
     context.setThrowUnavailableOnStartupException(true);
     server.setHandler(context);
 
-    server.start();
+    Map<Integer, String> ports = new LinkedHashMap<>();
+    ports.put(httpPort, "HTTP");
+    if (httpsPort != null) ports.put(httpsPort, "HTTPS");
+
+    try {
+      server.start();
+    } catch (Exception ex) {
+      BindException bind = findBindException(ex);
+      if (bind == null) throw ex;
+      stopQuietly(server);
+      StringBuilder message = new StringBuilder("\n[WARNING] Unable to start the Berlioz dev server: ")
+          .append(bind.getMessage()).append('\n');
+      for (Map.Entry<Integer, String> port : ports.entrySet()) {
+        List<String> owners = Ports.owners(port.getKey());
+        if (!owners.isEmpty()) {
+          message.append("  ").append(port.getKey()).append(" (").append(port.getValue()).append(") is held by ")
+              .append(String.join(", ", owners)).append('\n');
+        }
+      }
+      System.err.println(message);
+      System.exit(1);
+    }
+    AtomicBoolean stopped = new AtomicBoolean();
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> stop(server, ports, stopped), "berlioz-dev-shutdown"));
     if (sync != null) sync.watch();
 
     StringBuilder ready = new StringBuilder("\nBerlioz dev server started:\n");
@@ -166,20 +193,63 @@ public final class DevServer {
     ready.append("Press ENTER to stop.\n");
     System.out.println(ready);
 
-    startConsoleListener(server);
+    startConsoleListener(server, ports, stopped);
     server.join();
+  }
+
+  /**
+   * Stops the server (once) and checks that its ports have been released, warning otherwise.
+   */
+  private static void stop(Server server, Map<Integer, String> ports, AtomicBoolean stopped) {
+    if (!stopped.compareAndSet(false, true)) return;
+    try {
+      server.stop();
+    } catch (Exception ex) {
+      System.err.println("[WARNING] Error while stopping the Berlioz dev server: " + ex);
+    }
+    List<String> held = new ArrayList<>();
+    for (Map.Entry<Integer, String> port : ports.entrySet()) {
+      if (!Ports.isFree(port.getKey())) {
+        List<String> owners = Ports.owners(port.getKey());
+        held.add(port.getKey() + " (" + port.getValue() + ")"
+            + (owners.isEmpty() ? "" : " held by " + String.join(", ", owners)));
+      }
+    }
+    if (!held.isEmpty()) {
+      System.err.println("[WARNING] Port(s) still in use after stopping the Berlioz dev server: "
+          + String.join("; ", held));
+    }
+  }
+
+  private static void stopQuietly(Server server) {
+    try {
+      server.stop();
+    } catch (Exception ignored) {
+      // Already failing to start
+    }
+  }
+
+  private static BindException findBindException(Throwable ex) {
+    for (Throwable t = ex; t != null; t = t.getCause()) {
+      if (t instanceof BindException bind) return bind;
+      for (Throwable suppressed : t.getSuppressed()) {
+        BindException bind = findBindException(suppressed);
+        if (bind != null) return bind;
+      }
+    }
+    return null;
   }
 
   /**
    * Stops the server when a line is entered on the console; end of input is ignored so that the
    * server keeps running when there is no interactive console.
    */
-  private static void startConsoleListener(Server server) {
+  private static void startConsoleListener(Server server, Map<Integer, String> ports, AtomicBoolean stopped) {
     Thread listener = new Thread(() -> {
       try (BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
         if (in.readLine() != null) {
           System.out.println("Stopping Berlioz dev server...");
-          server.stop();
+          stop(server, ports, stopped);
         }
       } catch (Exception ex) {
         // Unable to read the console: rely on interrupt to stop
