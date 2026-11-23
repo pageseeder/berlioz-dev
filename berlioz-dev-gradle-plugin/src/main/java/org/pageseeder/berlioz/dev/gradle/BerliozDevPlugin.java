@@ -94,7 +94,6 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
   private static Configuration createServerConfiguration(Project project, BerliozDevExtension extension) {
     Configuration server = project.getConfigurations().create(CONFIGURATION_NAME, c -> {
       c.setDescription("Embedded Jetty launcher used by the appRun tasks");
-      c.setVisible(false);
       c.setCanBeConsumed(false);
       c.setCanBeResolved(true);
     });
