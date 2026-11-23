@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -22,6 +23,7 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.bundling.War;
 import org.gradle.jvm.toolchain.JavaToolchainService;
+import org.gradle.util.GradleVersion;
 
 /**
  * Runs a Berlioz web application locally on embedded Jetty 12 (EE8), as a replacement for Gretty.
@@ -43,6 +45,8 @@ import org.gradle.jvm.toolchain.JavaToolchainService;
  * <p>The web application classpath is the same as the WAR's WEB-INF/classes and WEB-INF/lib:
  * the main output plus the runtime classpath, without {@code providedRuntime} dependencies
  * (Jetty provides the servlet API).
+ *
+ * <p>Requires Gradle {@value #MINIMUM_GRADLE_VERSION} or later.
  */
 public abstract class BerliozDevPlugin implements Plugin<Project> {
 
@@ -52,10 +56,14 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
 
   public static final String LAUNCHER_MAIN_CLASS = "org.pageseeder.berlioz.dev.server.DevServer";
 
+  /** The oldest Gradle version the functional tests run against. */
+  public static final String MINIMUM_GRADLE_VERSION = "8.5";
+
   private static final String LAUNCHER_MODULE = "org.pageseeder.berlioz:berlioz-dev-server";
 
   @Override
   public void apply(Project project) {
+    checkGradleVersion(GradleVersion.current());
     project.getPluginManager().apply(WarPlugin.class);
     ProjectLayout layout = project.getLayout();
 
@@ -189,6 +197,17 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
       throw new UncheckedIOException(ex);
     }
     return properties.getProperty("version");
+  }
+
+  /**
+   * Fails with a clear message rather than an obscure API error when Gradle is too old.
+   */
+  static void checkGradleVersion(GradleVersion version) {
+    if (version.getBaseVersion().compareTo(GradleVersion.version(MINIMUM_GRADLE_VERSION)) < 0) {
+      throw new GradleException("The org.pageseeder.berlioz-dev plugin requires Gradle " + MINIMUM_GRADLE_VERSION
+          + " or later, this build uses " + version.getVersion() + ". Upgrade the Gradle wrapper, for example with"
+          + " ./gradlew wrapper --gradle-version=" + MINIMUM_GRADLE_VERSION);
+    }
   }
 
 }
