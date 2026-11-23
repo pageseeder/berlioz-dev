@@ -1,12 +1,15 @@
 # Berlioz dev server
 
 Gradle plugin (`org.pageseeder.berlioz-dev`) running a Berlioz web application locally on embedded
-Jetty 12 (EE8), replacing Gretty. It adds `appRun` / `appRunDebug` (debugger on port 5006), configured
+Jetty 12 (EE8), replacing Gretty. It adds `appRun` / `appRunDebug` (debugger on port 5005), configured
 with the `berliozDev { ... }` extension, and runs the WAR's classpath minus `providedRuntime`.
 
-The plugin replaces `@APP_VERSION@` (from `version.txt`) and `@APP_DATE@` in
+The plugin replaces `@APP_VERSION@` (the project version) and `@APP_DATE@` in
 `WEB-INF/config/config.xml`, both in the WAR and locally: `appRun` serves `build/berlioz-dev/webapp`,
 a copy of `src/main/webapp` kept in sync every 500 ms.
+
+**See the [user guide](docs/user-guide.md)** for setup, configuration, HTTPS, `.env` files,
+debugging, migrating from Gretty and troubleshooting.
 
 ## Modules
 
@@ -30,6 +33,7 @@ plugins {
 ```
 
 The launcher is resolved from the app's own `repositories`, which must include the same registry.
+See the [user guide](docs/user-guide.md) for the details.
 
 ## Developing
 
