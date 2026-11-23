@@ -1,0 +1,13 @@
+stages:
+  - publish
+
+# Tag with the version to release (e.g. `0.1.0`): it overrides `version` in gradle.properties
+Publish:
+  stage: publish
+  image: gradle:9.9-jdk21-alpine
+  tags:
+    - docker
+  only:
+    - tags
+  script:
+    - gradle clean build publish -Pversion="${CI_COMMIT_TAG#v}"
