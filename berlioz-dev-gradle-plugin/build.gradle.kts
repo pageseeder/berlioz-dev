@@ -36,4 +36,13 @@ dependencies {
 
 tasks.test {
   useJUnitPlatform()
+  // Gradle versions the functional tests run against: the minimum supported (8.5, the first to run on Java 21),
+  // the last 8.x and the wrapper's. Use `-PtestGradleVersions=current` for a quick run.
+  val gradleVersions = providers.gradleProperty("testGradleVersions").orElse("8.5,8.14.7,current")
+  inputs.property("gradleVersions", gradleVersions)
+  jvmArgumentProviders.add(GradleVersionsArgument(gradleVersions))
+}
+
+class GradleVersionsArgument(private val versions: Provider<String>) : CommandLineArgumentProvider {
+  override fun asArguments() = listOf("-DberliozDev.gradleVersions=${versions.get()}")
 }
