@@ -11,6 +11,14 @@ import org.gradle.api.provider.Property;
  */
 public abstract class BerliozDevExtension {
 
+  /**
+   * Host name of the server URLs, e.g. {@code developer.localhost} (default: {@code localhost}):
+   * used in the URLs printed at startup and in the self-signed certificate, which is created
+   * again when it does not cover this name. The server still listens on all interfaces; browsers
+   * resolve {@code *.localhost} to the loopback address, other names need a hosts file entry.
+   */
+  public abstract Property<String> getHostname();
+
   /** HTTP port (default: 8080). */
   public abstract Property<Integer> getHttpPort();
 
@@ -59,8 +67,8 @@ public abstract class BerliozDevExtension {
   public abstract Property<String> getWebInfIncludeJarPattern();
 
   /**
-   * PKCS12 keystore for HTTPS; created with a self-signed certificate for localhost if it does
-   * not exist (default: {@code build/berlioz-dev/keystore.p12}). Keep it outside the build
+   * PKCS12 keystore for HTTPS; created with a self-signed certificate for {@link #getHostname()
+   * the host name} and localhost if it does not exist (default: {@code build/berlioz-dev/keystore.p12}). Keep it outside the build
    * directory to avoid accepting a new certificate after each clean.
    */
   public abstract RegularFileProperty getKeystore();

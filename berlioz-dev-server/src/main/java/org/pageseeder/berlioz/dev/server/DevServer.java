@@ -7,7 +7,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,10 +47,13 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
  *       replaced, relative to the web application (e.g. {@code WEB-INF/config/config.xml})</li>
  *   <li>{@code classpath}: the web application classpath, using the platform path separator</li>
  *   <li>{@code context-path}: defaults to {@code /}</li>
+ *   <li>{@code hostname}: the host name of the URLs printed at startup and of the self-signed
+ *       certificate; defaults to {@code localhost}</li>
  *   <li>{@code http-port}: defaults to 8080</li>
  *   <li>{@code https-port}: HTTPS is disabled unless set</li>
  *   <li>{@code keystore}: the PKCS12 keystore for HTTPS, created with a self-signed certificate
- *       for localhost if it does not exist</li>
+ *       for the host name and localhost if it does not exist, or created again if it is a
+ *       certificate made by this launcher for another host name</li>
  *   <li>{@code keystore-password}: defaults to {@code berlioz-dev}</li>
  *   <li>{@code webinf-include-jar-pattern}: which jars are scanned for web fragments and
  *       META-INF/resources</li>
@@ -59,6 +66,8 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 public final class DevServer {
 
   private static final String DEFAULT_KEYSTORE_PASSWORD = "berlioz-dev";
+
+  private static final String KEY_ALIAS = "berlioz-dev";
 
   private DevServer() {
   }
@@ -83,6 +92,8 @@ public final class DevServer {
     if (!Files.isDirectory(webapp)) {
       throw new IllegalArgumentException("Web application directory not found: " + webapp);
     }
+    String hostname = options.getOrDefault("hostname", "localhost").trim();
+    if (hostname.isEmpty()) hostname = "localhost";
     int httpPort = Integer.parseInt(options.getOrDefault("http-port", "8080"));
     String httpsPortOption = options.get("https-port");
 
@@ -100,13 +111,13 @@ public final class DevServer {
       httpsPort = Integer.parseInt(httpsPortOption);
       Path keystore = Path.of(required(options, "keystore")).toAbsolutePath();
       String password = options.getOrDefault("keystore-password", DEFAULT_KEYSTORE_PASSWORD);
-      ensureKeystore(keystore, password);
+      ensureKeystore(keystore, password, hostname);
 
       http.setSecureScheme("https");
       http.setSecurePort(httpsPort);
       HttpConfiguration https = new HttpConfiguration(http);
       SecureRequestCustomizer customizer = new SecureRequestCustomizer();
-      // The self-signed certificate is only for localhost: allow other host names (e.g. a LAN IP)
+      // The self-signed certificate is only for the host name: allow others (e.g. a LAN IP)
       customizer.setSniHostCheck(false);
       https.addCustomizer(customizer);
 
@@ -147,9 +158,9 @@ public final class DevServer {
     if (sync != null) sync.watch();
 
     StringBuilder ready = new StringBuilder("\nBerlioz dev server started:\n");
-    ready.append("  http://localhost:").append(httpPort).append(contextPath).append('\n');
+    ready.append("  http://").append(hostname).append(':').append(httpPort).append(contextPath).append('\n');
     if (httpsPort != null) {
-      ready.append("  https://localhost:").append(httpsPort).append(contextPath)
+      ready.append("  https://").append(hostname).append(':').append(httpsPort).append(contextPath)
           .append("  (self-signed certificate)\n");
     }
     ready.append("Press ENTER to stop.\n");
@@ -179,20 +190,27 @@ public final class DevServer {
   }
 
   /**
-   * Creates a PKCS12 keystore with a self-signed certificate for localhost using the keytool of
-   * the running JVM, unless it already exists.
+   * Creates a PKCS12 keystore with a self-signed certificate for the host name and localhost
+   * using the keytool of the running JVM, unless it already exists. A keystore created by this
+   * launcher for another host name is replaced; any other keystore is left as is.
    */
-  private static void ensureKeystore(Path keystore, String password) throws IOException, InterruptedException {
-    if (Files.exists(keystore)) return;
+  private static void ensureKeystore(Path keystore, String password, String hostname)
+      throws IOException, InterruptedException {
+    if (Files.exists(keystore)) {
+      if (!isOwnCertificateForOtherHost(keystore, password, hostname)) return;
+      System.out.println("Replacing self-signed certificate in " + keystore + " to cover " + hostname);
+      Files.delete(keystore);
+    }
     Path parent = keystore.getParent();
     if (parent != null) Files.createDirectories(parent);
     String exe = System.getProperty("os.name").toLowerCase().contains("windows") ? "keytool.exe" : "keytool";
     Path keytool = Path.of(System.getProperty("java.home"), "bin", exe);
+    String san = "dns:localhost" + ("localhost".equalsIgnoreCase(hostname) ? "" : ",dns:" + hostname);
     List<String> command = List.of(keytool.toString(), "-genkeypair",
-        "-alias", "berlioz-dev",
+        "-alias", KEY_ALIAS,
         "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650",
-        "-dname", "CN=localhost",
-        "-ext", "SAN=dns:localhost,ip:127.0.0.1,ip:0:0:0:0:0:0:0:1",
+        "-dname", "CN=" + hostname,
+        "-ext", "SAN=" + san + ",ip:127.0.0.1,ip:0:0:0:0:0:0:0:1",
         "-storetype", "PKCS12",
         "-keystore", keystore.toString(),
         "-storepass", password, "-keypass", password);
@@ -200,7 +218,33 @@ public final class DevServer {
     if (process.waitFor() != 0) {
       throw new IOException("Unable to create the development keystore " + keystore + " with " + keytool);
     }
-    System.out.println("Created self-signed certificate for localhost in " + keystore);
+    System.out.println("Created self-signed certificate for " + hostname + " in " + keystore);
+  }
+
+  /**
+   * Whether the keystore holds a certificate created by this launcher (under its alias, with its
+   * password) that does not list the host name: such a certificate must be created again.
+   */
+  private static boolean isOwnCertificateForOtherHost(Path keystore, String password, String hostname) {
+    try (var in = Files.newInputStream(keystore)) {
+      KeyStore store = KeyStore.getInstance("PKCS12");
+      store.load(in, password.toCharArray());
+      Certificate certificate = store.getCertificate(KEY_ALIAS);
+      if (!(certificate instanceof X509Certificate x509)) return false;
+      Collection<List<?>> names = x509.getSubjectAlternativeNames();
+      if (names != null) {
+        for (List<?> name : names) {
+          // Type 2 is a DNS name
+          if (Integer.valueOf(2).equals(name.get(0)) && hostname.equalsIgnoreCase(String.valueOf(name.get(1)))) {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch (Exception ex) {
+      // Not a keystore created by this launcher: leave it alone
+      return false;
+    }
   }
 
   /** Converts a platform classpath to Jetty's comma-separated extra classpath (skipping missing entries). */

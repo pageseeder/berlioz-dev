@@ -26,6 +26,7 @@ class BerliozDevPluginFunctionalTest {
         "plugins { id(\"org.pageseeder.berlioz-dev\") }",
         "version = \"1.2.3\"",
         "berliozDev {",
+        "  hostname = \"sample.localhost\"",
         "  httpPort = 8999",
         "  httpsEnabled = false",
         "  mode = \"local\"",
@@ -47,6 +48,7 @@ class BerliozDevPluginFunctionalTest {
 
     String output = run("printArgs").getOutput();
     assertTrue(output.contains("-Dberlioz.mode=local"), output);
+    assertTrue(output.contains("--hostname=sample.localhost"), output);
     assertTrue(output.contains("--http-port=8999"), output);
     assertTrue(output.contains("--webinf-include-jar-pattern=.*/sample-[^/]*\\.jar$"), output);
     assertTrue(!output.contains("--https-port"), output);

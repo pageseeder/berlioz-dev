@@ -45,6 +45,9 @@ public abstract class DevServerArguments implements CommandLineArgumentProvider 
   public abstract Property<String> getContextPath();
 
   @Input
+  public abstract Property<String> getHostname();
+
+  @Input
   public abstract Property<Integer> getHttpPort();
 
   @Input
@@ -72,6 +75,7 @@ public abstract class DevServerArguments implements CommandLineArgumentProvider 
     }
     args.add("--classpath=" + getWebappClasspath().getAsPath());
     args.add("--context-path=" + getContextPath().get());
+    args.add("--hostname=" + getHostname().get());
     args.add("--http-port=" + getHttpPort().get());
     if (getHttpsPort().isPresent()) {
       args.add("--https-port=" + getHttpsPort().get());

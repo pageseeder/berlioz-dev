@@ -60,6 +60,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
     ProjectLayout layout = project.getLayout();
 
     BerliozDevExtension extension = project.getExtensions().create(EXTENSION_NAME, BerliozDevExtension.class);
+    extension.getHostname().convention("localhost");
     extension.getHttpPort().convention(8080);
     extension.getHttpsEnabled().convention(true);
     extension.getHttpsPort().convention(8443);
@@ -148,6 +149,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
           configurations.named(main.getRuntimeClasspathConfigurationName())
               .map(runtime -> runtime.minus(configurations.getByName(WarPlugin.PROVIDED_RUNTIME_CONFIGURATION_NAME))));
       arguments.getContextPath().set(extension.getContextPath());
+      arguments.getHostname().set(extension.getHostname());
       arguments.getHttpPort().set(extension.getHttpPort());
       arguments.getHttpsPort().set(extension.getHttpsEnabled().flatMap(enabled -> enabled
           ? extension.getHttpsPort()
