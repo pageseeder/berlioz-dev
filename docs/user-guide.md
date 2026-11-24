@@ -36,7 +36,7 @@ pluginManagement {
   repositories {
     maven {
       name = "mavenGitLab"
-      url = uri("https://gitlab.example.com/api/v4/projects/0/packages/maven")
+      url = uri(providers.gradleProperty("gitlabMavenUrl").get())
       credentials(HttpHeaderCredentials::class) {
         val ciJobToken = System.getenv("CI_JOB_TOKEN")
         name = if (ciJobToken != null) "Job-Token" else "Private-Token"
@@ -56,9 +56,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Locally, put your GitLab personal access token (scope `read_api`) in `~/.gradle/gradle.properties`:
+Locally, put the URL of the registry and your GitLab personal access token (scope `read_api`) in
+`~/.gradle/gradle.properties` (in CI, set the `ORG_GRADLE_PROJECT_gitlabMavenUrl` variable):
 
 ```properties
+gitlabMavenUrl=https://gitlab.example.com/api/v4/projects/<id>/packages/maven
 gitlabPrivateToken=glpat-...
 ```
 
