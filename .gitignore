@@ -4,3 +4,11 @@
 /build/
 /*/build/
 .DS_Store
+
+# Secrets and local files
+.env
+.env.*
+!.env.example
+*.p12
+*.jks
+CLAUDE.md

@@ -46,7 +46,16 @@ To try changes in an app without publishing, from the app: `./gradlew appRun --i
 
 ## Releasing
 
-Push a tag named after the version (e.g. `0.1.0`): GitLab CI builds, tests and publishes both modules
-to the GitLab package registry, overriding `version` with the tag. This project's CI job token must be
-allowed to write to that registry. A manual `./gradlew publish` uses `gitlabPrivateToken` instead.
-The registry URL is the `gitlabMavenUrl` Gradle property (`ORG_GRADLE_PROJECT_gitlabMavenUrl` in CI).
+The modules are published to a private GitLab package registry, whose URL is the `gitlabMavenUrl` Gradle
+property. Without it, `publish` has no repository to publish to.
+
+- **Manually**: set `gitlabMavenUrl` and `gitlabPrivateToken` in `~/.gradle/gradle.properties`, then run
+  `./gradlew clean build publish -Pversion=0.1.0`.
+- **From GitLab CI**: in a GitLab copy of this repository, pushing a tag named after the version (e.g.
+  `0.1.0`) builds, tests and publishes both modules, overriding `version` with the tag. Set the
+  `ORG_GRADLE_PROJECT_gitlabMavenUrl` CI variable, and allow the project's job token to write to the
+  registry. Pushing a tag to GitHub does not publish anything.
+
+## Licence
+
+[Apache License 2.0](LICENSE)
