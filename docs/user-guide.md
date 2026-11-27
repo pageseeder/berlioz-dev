@@ -177,6 +177,7 @@ All settings are in the `berliozDev { ... }` extension.
 | `requiredEnv` | none | Environment variables to warn about when missing |
 | `jvmArgs` | none | Additional JVM arguments for the server |
 | `webInfIncludeJarPattern` | Jetty's default | Regex of the jars scanned for `web-fragment.xml` and `META-INF/resources` |
+| `jettyLog` | `build/berlioz-dev/jetty.log` | File the Jetty logs are written to, emptied at each start; warnings and errors also go to the console (see [Logs](#logs)) |
 | `jettyVersion` | the launcher's (12.0.41) | Overrides the Jetty 12 version |
 
 ### Examples
@@ -211,6 +212,24 @@ Matching the Jetty version of a Docker image:
 ```kotlin
 berliozDev {
   jettyVersion.set("12.0.41")
+}
+```
+
+## Logs
+
+Jetty's own logs (startup, deployment, request errors it handles) are written to
+`build/berlioz-dev/jetty.log`, emptied each time the server starts, so the console mostly shows the
+output of the web application (its own Logback or other SLF4J binding is not affected). Jetty's
+warnings and errors, such as an uncaught exception from a request or a deployment problem, are
+still printed on the console too, with their stack traces. The path is
+printed with the URLs at startup; follow it with `tail -f build/berlioz-dev/jetty.log`.
+
+Another file, or back to the console:
+
+```kotlin
+berliozDev {
+  jettyLog.set(layout.projectDirectory.file("logs/jetty.log"))
+  // jettyLog.convention(null as RegularFile?)  // console (set(null) falls back to the default)
 }
 ```
 

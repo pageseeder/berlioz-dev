@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.eclipse.jetty.ee8.webapp.ClassMatcher;
 import org.eclipse.jetty.ee8.webapp.WebAppContext;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
@@ -60,6 +61,9 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
  *   <li>{@code webinf-include-jar-pattern}: which jars are scanned for web fragments and
  *       META-INF/resources</li>
  *   <li>{@code temp-dir}: the Jetty temporary directory for the web application</li>
+ *   <li>{@code jetty-log}: the file Jetty logs to, emptied at startup, its warnings and errors
+ *       still being printed on standard error; defaults to standard error only (the logs of a
+ *       web application with its own SLF4J binding are not affected)</li>
  * </ul>
  *
  * <p>Press ENTER to stop the server (end of input is ignored, so it keeps running when started
@@ -79,6 +83,17 @@ public final class DevServer {
     Map<String, List<String>> multiOptions = parse(args);
     Map<String, String> options = new HashMap<>();
     multiOptions.forEach((name, values) -> options.put(name, values.get(values.size() - 1)));
+    Path jettyLog = null;
+    String jettyLogOption = options.get("jetty-log");
+    if (jettyLogOption != null && !jettyLogOption.isBlank()) {
+      // Before any Jetty class logs anything
+      Path file = Path.of(jettyLogOption).toAbsolutePath();
+      if (JettyLog.redirectTo(file, System.err)) {
+        jettyLog = file;
+      } else {
+        System.err.println("[WARNING] Unable to redirect the Jetty logs to " + file + ": Jetty is not using jetty-slf4j-impl");
+      }
+    }
     Path webapp = Path.of(required(options, "webapp")).toAbsolutePath();
 
     WebappSync sync = null;
@@ -139,6 +154,9 @@ public final class DevServer {
     WebAppContext context = new WebAppContext();
     context.setContextPath(contextPath);
     context.setBaseResourceAsPath(webapp);
+    // The web application uses its own SLF4J binding: hide Jetty's, which it would otherwise find and fail to load
+    String jettyLogging = JettyLog.implementationLocation();
+    if (jettyLogging != null) context.addServerClassMatcher(new ClassMatcher(jettyLogging));
     String classpath = options.get("classpath");
     if (classpath != null && !classpath.isBlank()) {
       context.setExtraClasspath(toExtraClasspath(classpath));
@@ -190,6 +208,7 @@ public final class DevServer {
       ready.append("  https://").append(hostname).append(':').append(httpsPort).append(contextPath)
           .append("  (self-signed certificate)\n");
     }
+    if (jettyLog != null) ready.append("Jetty logs: ").append(jettyLog).append(" (warnings and errors shown here too)\n");
     ready.append("Press ENTER to stop.\n");
     System.out.println(ready);
 

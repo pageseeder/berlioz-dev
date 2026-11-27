@@ -73,6 +73,7 @@ class BerliozDevPluginFunctionalTest {
     assertTrue(output.contains("berlioz-dev/webapp,"), output);
     assertTrue(output.contains("--token=APP_VERSION=1.2.3"), output);
     assertTrue(output.contains("--filter=WEB-INF/config/config.xml"), output);
+    assertTrue(output.contains("--jetty-log=" + projectDir.toRealPath().resolve("build/berlioz-dev/jetty.log")), output);
   }
 
   @ParameterizedTest(name = "Gradle {0}")

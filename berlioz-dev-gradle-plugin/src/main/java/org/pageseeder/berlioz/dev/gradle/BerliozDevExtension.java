@@ -86,6 +86,15 @@ public abstract class BerliozDevExtension {
   /** Additional JVM arguments for the server. */
   public abstract ListProperty<String> getJvmArgs();
 
+  /**
+   * File the Jetty server logs are written to, emptied each time the server starts, so that they
+   * are not mixed with the output of the web application; Jetty's warnings and errors are still
+   * printed on the console (default:
+   * {@code build/berlioz-dev/jetty.log}). To log to the console instead, clear the convention: {@code jettyLog.convention(null as RegularFile?)}.
+   * Logs of the web application itself (its own SLF4J binding, e.g. Logback) are not affected.
+   */
+  public abstract RegularFileProperty getJettyLog();
+
   /** Overrides the Jetty version of the launcher (default: none, the launcher's own version). */
   public abstract Property<String> getJettyVersion();
 

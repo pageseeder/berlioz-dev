@@ -76,6 +76,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
     extension.getContextPath().convention("/");
     extension.getWebappDirectory().convention(layout.getProjectDirectory().dir("src/main/webapp"));
     extension.getKeystore().convention(layout.getBuildDirectory().file("berlioz-dev/keystore.p12"));
+    extension.getJettyLog().convention(layout.getBuildDirectory().file("berlioz-dev/jetty.log"));
     String today = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
     extension.getTokens().convention(project.provider(() ->
         Map.of("APP_VERSION", project.getVersion().toString(), "APP_DATE", today)));
@@ -132,7 +133,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
       task.getJavaLauncher().convention(toolchains.launcherFor(java.getToolchain()));
       task.setWorkingDir(project.getProjectDir());
       // Lets the launcher stop when ENTER is pressed
-      task.setStandardInput(System.in);
+      task.doFirst(new StopLineInput.Apply());
       task.doFirst(new LoadEnvAction(extension.getEnv(), extension.getRequiredEnv()));
 
       // Before forking the server JVM (doFirst prepends, so this runs first), and once it has exited
@@ -175,6 +176,7 @@ public abstract class BerliozDevPlugin implements Plugin<Project> {
       arguments.getKeystore().set(extension.getKeystore());
       arguments.getWebInfIncludeJarPattern().set(extension.getWebInfIncludeJarPattern());
       arguments.getTempDirectory().set(project.getLayout().getBuildDirectory().dir("berlioz-dev/" + name));
+      arguments.getJettyLog().set(extension.getJettyLog());
       task.getArgumentProviders().add(arguments);
 
       if (debug) {

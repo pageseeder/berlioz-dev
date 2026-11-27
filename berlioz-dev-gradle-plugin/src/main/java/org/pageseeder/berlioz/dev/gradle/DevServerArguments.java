@@ -64,6 +64,10 @@ public abstract class DevServerArguments implements CommandLineArgumentProvider 
   @Internal
   public abstract DirectoryProperty getTempDirectory();
 
+  /** File the Jetty logs are written to (unset for standard error). */
+  @Internal
+  public abstract RegularFileProperty getJettyLog();
+
   @Override
   public Iterable<String> asArguments() {
     List<String> args = new ArrayList<>();
@@ -87,6 +91,9 @@ public abstract class DevServerArguments implements CommandLineArgumentProvider 
     if (getTempDirectory().isPresent()) {
       File dir = getTempDirectory().get().getAsFile();
       args.add("--temp-dir=" + dir.getAbsolutePath());
+    }
+    if (getJettyLog().isPresent()) {
+      args.add("--jetty-log=" + getJettyLog().get().getAsFile().getAbsolutePath());
     }
     return args;
   }

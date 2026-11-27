@@ -14,7 +14,8 @@ val jettyVersion = "12.0.41"
 
 dependencies {
   api("org.eclipse.jetty.ee8:jetty-ee8-webapp:$jettyVersion")
-  runtimeOnly("org.eclipse.jetty:jetty-slf4j-impl:$jettyVersion")
+  // Its appender is redirected to a file (JettyLog)
+  implementation("org.eclipse.jetty:jetty-slf4j-impl:$jettyVersion")
 }
 
 // The plugin project needs none: java-gradle-plugin creates the plugin jar and marker publications
