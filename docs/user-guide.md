@@ -132,6 +132,7 @@ prints its URLs:
 Berlioz dev server started:
   http://myapp.localhost:8999/
   https://myapp.localhost:8443/  (self-signed certificate)
+Jetty logs: /path/to/myapp/build/berlioz-dev/jetty.log (warnings and errors shown here too)
 Press ENTER to stop.
 ```
 
@@ -154,6 +155,20 @@ start `appRun` with the IDE's *Debug* action.
 
 Stopping with ENTER needs a console that forwards input. If yours doesn't, use the IDE's *Stop*
 button: the server stops on interrupt as well.
+
+The *Stop* button cancels the Gradle build, so IntelliJ reports it as a failure:
+
+```
+> Task :appRun FAILED
+...
+> Build cancelled while executing task ':appRun'
+```
+
+This is expected: Gradle reports any cancelled task this way. The server still shuts down cleanly
+(Jetty and the web application are stopped and the ports released), but its shutdown messages,
+such as `[BERLIOZ_STOP]`, and the port check after it stops are not shown: Gradle stops displaying
+the task's output once the build is cancelled. Jetty's own messages are still written to
+`build/berlioz-dev/jetty.log`, and the next `appRun` checks the ports before starting.
 
 ## Configuration
 
