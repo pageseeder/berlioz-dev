@@ -70,7 +70,7 @@ In `build.gradle.kts`:
 
 ```kotlin
 plugins {
-  id("org.pageseeder.berlioz-dev") version "0.1.0"
+  id("org.pageseeder.berlioz-dev") version "0.2.0"
 }
 ```
 
@@ -78,7 +78,7 @@ or, with a version catalog (`gradle/libs.versions.toml`):
 
 ```toml
 [versions]
-berlioz-dev = "0.1.0"
+berlioz-dev = "0.2.0"
 
 [plugins]
 berlioz-dev = { id = "org.pageseeder.berlioz-dev", version.ref = "berlioz-dev" }

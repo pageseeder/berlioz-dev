@@ -28,7 +28,7 @@ In the app's `settings.gradle.kts`, add the GitLab package registry to
 
 ```kotlin
 plugins {
-  id("org.pageseeder.berlioz-dev") version "0.1.0"
+  id("org.pageseeder.berlioz-dev") version "0.2.0"
 }
 ```
 
